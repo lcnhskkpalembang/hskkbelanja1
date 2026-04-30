@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN" translate="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="google" content="notranslate">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HSK 4 Drag & Drop: Strategi Jual Beli</title>
+    <script src="https://unpkg.com/pinyin-pro"></script>
+    <style>
+        :root { --gold: #fbbf24; --bg: #0f172a; --card: #1e293b; --text: #f1f5f9; }
+        body { font-family: "SimSun", serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; user-select: none; }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 40px; border-radius: 15px; }
+        header { text-align: center; border-bottom: 3px solid var(--gold); margin-bottom: 40px; }
+        
+        /* Pinyin Hover */
+        ruby { ruby-position: over; cursor: help; }
+        rt { visibility: hidden; font-family: Arial; font-size: 0.8em; color: var(--gold); background: #000; padding: 2px 4px; border-radius: 4px; position: absolute; transform: translateY(-25px); opacity: 0; transition: 0.2s; }
+        ruby:hover rt { visibility: visible; opacity: 1; }
+
+        .type-header { background: var(--gold); color: #000; padding: 10px; font-weight: bold; margin: 30px 0 15px; border-radius: 5px; }
+        .q-card { background: #334155; padding: 20px; margin-bottom: 20px; border-radius: 10px; border-left: 5px solid var(--gold); }
+        
+        /* Drag & Drop Styles */
+        .drag-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; min-height: 50px; padding: 10px; border: 2px dashed #475569; border-radius: 8px; }
+        .word-item { background: #475569; color: white; padding: 8px 15px; border-radius: 5px; cursor: grab; border: 1px solid var(--gold); font-size: 1.1em; }
+        .word-item:active { cursor: grabbing; }
+        .drop-zone { background: #1a2433; border: 2px solid var(--gold); }
+
+        .options label { display: block; background: #475569; padding: 10px; margin: 5px 0; border-radius: 5px; cursor: pointer; }
+        #submit-btn { background: var(--gold); color: #000; border: none; padding: 20px; width: 100%; font-size: 1.5em; font-weight: bold; border-radius: 10px; cursor: pointer; margin-top: 30px; }
+        .correct-ans { color: #4ade80; font-weight: bold; margin-top: 10px; display: none; background: #000; padding: 10px; }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+<div class="container">
+    <header>
+        <h1>HSK 4: Drag & Drop Quiz</h1>
+        <p>Susun ayat dengan mengheret (drag) kotak perkataan ke dalam zon jawapan.</p>
+    </header>
+    <div id="quiz-box"></div>
+    <button id="submit-btn" onclick="checkAll()">KIRIM JAWABAN</button>
+</div>
+
+<script>
+    const { pinyin } = pinyinPro;
+
+    const questions = [
+        // PILIHAN GANDA
+        { type: "mc", q: "在星巴克，最底层的潜规则是关于：", a: ["咖啡豆价格", "杯型命名规则", "店员的制服", "装修风格"], c: 1 },
+        { type: "mc", q: "瑞幸咖啡通过什么消灭了交易摩擦？", a: ["扫码支付", "发放传单", "免费试喝", "雇佣外教"], c: 0 },
+        
+        // BENAR SALAH
+        { type: "tf", q: "超市的动线设计是为了缩短顾客的购物时间。", c: false },
+        { type: "tf", q: "“抹零”是菜市场里一种原始的商业契约精神。", c: true },
+
+        // DRAG & DROP (Menyusun Kalimat)
+        { type: "drag", q: "Susun ayat: 把 / 诉求 / 压缩 / 进了 / 他 / 手机", words: ["他", "把", "诉求", "压缩", "进了", "手机"], c: "他把诉求压缩进了手机" },
+        { type: "drag", q: "Susun ayat: 消灭了 / 麻烦 / 扫码支付 / 找零的", words: ["扫码支付", "消灭了", "找零的", "麻烦"], c: "扫码支付消灭了找零的麻烦" },
+        { type: "drag", q: "Susun ayat: 保留了 / 温度 / 菜市场 / 交流的", words: ["菜市场", "保留了", "交流的", "温度"], c: "菜市场保留了交流的温度" }
+    ];
+
+    // Tambah kuota hingga 80 secara simulasi
+    for(let i=questions.length; i<80; i++) {
+        questions.push({ type: "mc", q: `(Soal ${i+1}) 自动收银机在哪个场景最常见？`, a: ["咖啡店", "大型超市", "小摊位", "电影院"], c: 1 });
+    }
+
+    const quizBox = document.getElementById('quiz-box');
+
+    function convertRuby(text) {
+        return text.split('').map(char => {
+            if (char.match(/[\u4e00-\u9fa5]/)) return `<ruby>${char}<rt>${pinyin(char)}</rt></ruby>`;
+            return char;
+        }).join('');
+    }
+
+    function render() {
+        questions.forEach((item, idx) => {
+            const card = document.createElement('div');
+            card.className = "q-card";
+            let html = `<div class="q-text">${idx+1}. ${convertRuby(item.q)}</div>`;
+
+            if(item.type === "mc") {
+                html += `<div class="options">` + item.a.map((opt, i) => `<label><input type="radio" name="q${idx}" value="${i}"> ${convertRuby(opt)}</label>`).join('') + `</div>`;
+            } else if(item.type === "tf") {
+                html += `<div class="options"><label><input type="radio" name="q${idx}" value="true"> Benar</label><label><input type="radio" name="q${idx}" value="false"> Salah</label></div>`;
+            } else if(item.type === "drag") {
+                html += `<div class="drag-container drop-zone" id="zone${idx}" ondrop="drop(event)" ondragover="allowDrop(event)"></div>`;
+                html += `<div class="drag-container" id="source${idx}" ondrop="drop(event)" ondragover="allowDrop(event)">`;
+                // Shuffle words
+                let shuffled = [...item.words].sort(() => Math.random() - 0.5);
+                shuffled.forEach((w, wi) => {
+                    html += `<div class="word-item" draggable="true" ondragstart="drag(event)" id="word-${idx}-${wi}">${convertRuby(w)}</div>`;
+                });
+                html += `</div>`;
+            }
+
+            html += `<div class="correct-ans" id="corr${idx}">Jawaban Betul: ${item.c === true ? 'Benar' : item.c === false ? 'Salah' : (item.type === 'mc' ? item.a[item.c] : item.c)}</div>`;
+            card.innerHTML = html;
+            quizBox.appendChild(card);
+        });
+    }
+
+    // Drag and Drop Logic
+    function allowDrop(ev) { ev.preventDefault(); }
+    function drag(ev) { ev.dataTransfer.setData("text", ev.target.id); }
+    function drop(ev) {
+        ev.preventDefault();
+        var data = ev.dataTransfer.getData("text");
+        var target = ev.target;
+        if (target.classList.contains('drag-container')) {
+            target.appendChild(document.getElementById(data));
+        }
+    }
+
+    function checkAll() {
+        let score = 0;
+        questions.forEach((item, idx) => {
+            let isRight = false;
+            if(item.type === "mc") {
+                const s = document.querySelector(`input[name="q${idx}"]:checked`);
+                if(s && parseInt(s.value) === item.c) isRight = true;
+            } else if(item.type === "tf") {
+                const s = document.querySelector(`input[name="q${idx}"]:checked`);
+                if(s && (s.value === 'true') === item.c) isRight = true;
+            } else if(item.type === "drag") {
+                const zone = document.getElementById(`zone${idx}`);
+                const userSentence = Array.from(zone.children).map(c => c.innerText.replace(/\s+/g, '')).join('');
+                if(userSentence === item.c.replace(/\s+/g, '')) isRight = true;
+            }
+            if(isRight) score++;
+            document.getElementById(`corr${idx}`).style.display = "block";
+        });
+        alert(`Skor: ${score} / 80`);
+        window.scrollTo(0, 0);
+    }
+
+    render();
+</script>
+</body>
+</html>
